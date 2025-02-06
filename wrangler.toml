@@ -2,10 +2,10 @@ name = "nrproxy2"
 compatibility_date = "2024-09-28"
 main = "server.js"
 
-# Fuck off Cloudflare
+compatibility_flags = [ "nodejs_compat" ]
+
 workers_dev = false
 send_metrics = false
 
-# Force enable keeping logs
 [observability]
 enabled = true
