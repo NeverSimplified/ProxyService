@@ -44,9 +44,6 @@ const APPEND_HEAD = process.env.APPEND_HEAD === 'true';
 const ALLOWED_HOSTS = getHosts(process.env.ALLOWED_HOSTS);
 const GZIP_METHOD = process.env.GZIP_METHOD;
 
-assert.ok(ACCESS_KEY, 'Missing ACCESS_KEY');
-assert.ok(ALLOWED_GZIP_METHODS.includes(GZIP_METHOD), `GZIP_METHOD must be one of the following values: ${JSON.stringify(ALLOWED_GZIP_METHODS)}`);
-
 const server = http.createServer();
 
 const httpsProxy = proxy.createProxyServer({
@@ -202,14 +199,6 @@ const onProxyRes = (proxyRes, req, res) => {
   }
 };
 
-httpsProxy.on('error', onProxyError);
-httpsProxy.on('proxyReq', onProxyReq);
-httpsProxy.on('proxyRes', onProxyRes);
-
-httpProxy.on('error', onProxyError);
-httpProxy.on('proxyReq', onProxyReq);
-httpProxy.on('proxyRes', onProxyRes);
-
 const doProxy = (target, proto, req, res) => {
   var options = {
     target: proto + '://' + target.host
@@ -223,69 +212,82 @@ const doProxy = (target, proto, req, res) => {
   }
 };
 
-server.on('request', (req, res) => {
-  const method = req.headers['proxy-target-override-method'];
-  if (method) {
-    if (ALLOWED_METHODS.includes(method)) {
-      req.method = method;
-    } else {
-      writeErr(res, 400, 'Invalid target method');
-      return;
-    }
-  }
-  const overrideProto = req.headers['proxy-target-override-proto'];
-  if (overrideProto && !ALLOWED_PROTOS.includes(overrideProto)) {
-    writeErr(res, 400, 'Invalid target protocol');
-    return;
-  }
-  const accessKey = req.headers['proxy-access-key'];
-  const requestedTarget = req.headers['proxy-target'];
-  if (accessKey && requestedTarget) {
-    req.on('error', (err) => {
-      console.error(`Request error: ${err}`);
-    });
-    const accessKeyBuffer = Buffer.from(accessKey);
-    if (accessKeyBuffer.length === ACCESS_KEY.length && crypto.timingSafeEqual(accessKeyBuffer, ACCESS_KEY)) {
-      let parsedTarget;
-      try {
-        parsedTarget = new URL(`https://${requestedTarget}`);
-      } catch (e) {
-        writeErr(res, 400, 'Invalid target');
+export default {
+  assert.ok(ACCESS_KEY, 'Missing ACCESS_KEY');
+  assert.ok(ALLOWED_GZIP_METHODS.includes(GZIP_METHOD), `GZIP_METHOD must be one of the following values: ${JSON.stringify(ALLOWED_GZIP_METHODS)}`);
+  
+  httpsProxy.on('error', onProxyError);
+  httpsProxy.on('proxyReq', onProxyReq);
+  httpsProxy.on('proxyRes', onProxyRes);
+  
+  httpProxy.on('error', onProxyError);
+  httpProxy.on('proxyReq', onProxyReq);
+  httpProxy.on('proxyRes', onProxyRes);
+  
+  server.on('request', (req, res) => {
+    const method = req.headers['proxy-target-override-method'];
+    if (method) {
+      if (ALLOWED_METHODS.includes(method)) {
+        req.method = method;
+      } else {
+        writeErr(res, 400, 'Invalid target method');
         return;
       }
-      const requestedHost = parsedTarget.host;
-      let hostAllowed = false;
-      let hostProto = DEFAULT_PROTO;
-      for (let i = 0; i < ALLOWED_HOSTS.length; i++) {
-        const iHost = ALLOWED_HOSTS[i];
-        if (requestedHost === iHost.host) {
-          hostAllowed = true;
-          break;
+    }
+    const overrideProto = req.headers['proxy-target-override-proto'];
+    if (overrideProto && !ALLOWED_PROTOS.includes(overrideProto)) {
+      writeErr(res, 400, 'Invalid target protocol');
+      return;
+    }
+    const accessKey = req.headers['proxy-access-key'];
+    const requestedTarget = req.headers['proxy-target'];
+    if (accessKey && requestedTarget) {
+      req.on('error', (err) => {
+        console.error(`Request error: ${err}`);
+      });
+      const accessKeyBuffer = Buffer.from(accessKey);
+      if (accessKeyBuffer.length === ACCESS_KEY.length && crypto.timingSafeEqual(accessKeyBuffer, ACCESS_KEY)) {
+        let parsedTarget;
+        try {
+          parsedTarget = new URL(`https://${requestedTarget}`);
+        } catch (e) {
+          writeErr(res, 400, 'Invalid target');
+          return;
         }
-      }
-      if (!USE_WHITELIST) {
-        hostAllowed = true;
-      }
-      if (overrideProto) {
-        hostProto = overrideProto;
-      }
-      if (hostAllowed) {
-        doProxy(parsedTarget, hostProto, req, res);
+        const requestedHost = parsedTarget.host;
+        let hostAllowed = false;
+        let hostProto = DEFAULT_PROTO;
+        for (let i = 0; i < ALLOWED_HOSTS.length; i++) {
+          const iHost = ALLOWED_HOSTS[i];
+          if (requestedHost === iHost.host) {
+            hostAllowed = true;
+            break;
+          }
+        }
+        if (!USE_WHITELIST) {
+          hostAllowed = true;
+        }
+        if (overrideProto) {
+          hostProto = overrideProto;
+        }
+        if (hostAllowed) {
+          doProxy(parsedTarget, hostProto, req, res);
+        } else {
+          writeErr(res, 400, 'Host not whitelisted');
+        }
       } else {
-        writeErr(res, 400, 'Host not whitelisted');
+        writeErr(res, 403, 'Invalid access key');
       }
     } else {
-      writeErr(res, 403, 'Invalid access key');
+      writeErr(res, 400, 'proxy-access-key and proxy-target headers are both required');
     }
-  } else {
-    writeErr(res, 400, 'proxy-access-key and proxy-target headers are both required');
-  }
-});
-
-server.listen(PORT, (err) => {
-  if (err) {
-    console.error(`Server listening error: ${err}`);
-    return;
-  }
-  console.log(`Server started on port ${PORT}`);
-});
+  });
+  
+  server.listen(PORT, (err) => {
+    if (err) {
+      console.error(`Server listening error: ${err}`);
+      return;
+    }
+    console.log(`Server started on port ${PORT}`);
+  });
+}
