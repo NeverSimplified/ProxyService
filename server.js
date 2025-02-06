@@ -212,17 +212,18 @@ const doProxy = (target, proto, req, res) => {
   }
 };
 
+assert.ok(ACCESS_KEY, 'Missing ACCESS_KEY');
+assert.ok(ALLOWED_GZIP_METHODS.includes(GZIP_METHOD), `GZIP_METHOD must be one of the following values: ${JSON.stringify(ALLOWED_GZIP_METHODS)}`);
+
+httpsProxy.on('error', onProxyError);
+httpsProxy.on('proxyReq', onProxyReq);
+httpsProxy.on('proxyRes', onProxyRes);
+
+httpProxy.on('error', onProxyError);
+httpProxy.on('proxyReq', onProxyReq);
+httpProxy.on('proxyRes', onProxyRes);
+
 export default {
-  assert.ok(ACCESS_KEY, 'Missing ACCESS_KEY');
-  assert.ok(ALLOWED_GZIP_METHODS.includes(GZIP_METHOD), `GZIP_METHOD must be one of the following values: ${JSON.stringify(ALLOWED_GZIP_METHODS)}`);
-  
-  httpsProxy.on('error', onProxyError);
-  httpsProxy.on('proxyReq', onProxyReq);
-  httpsProxy.on('proxyRes', onProxyRes);
-  
-  httpProxy.on('error', onProxyError);
-  httpProxy.on('proxyReq', onProxyReq);
-  httpProxy.on('proxyRes', onProxyRes);
   
   server.on('request', (req, res) => {
     const method = req.headers['proxy-target-override-method'];
