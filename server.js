@@ -225,7 +225,7 @@ httpProxy.on('proxyRes', onProxyRes);
 
 export default {
   
-  async fetch(req, res) => {
+  async fetch(req, res) {
     const method = req.headers['proxy-target-override-method'];
     if (method) {
       if (ALLOWED_METHODS.includes(method)) {
