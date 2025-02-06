@@ -225,7 +225,7 @@ httpProxy.on('proxyRes', onProxyRes);
 
 export default {
   
-  server.on('request', (req, res) => {
+  async fetch(req, res) => {
     const method = req.headers['proxy-target-override-method'];
     if (method) {
       if (ALLOWED_METHODS.includes(method)) {
@@ -284,11 +284,4 @@ export default {
     }
   });
   
-  server.listen(PORT, (err) => {
-    if (err) {
-      console.error(`Server listening error: ${err}`);
-      return;
-    }
-    console.log(`Server started on port ${PORT}`);
-  });
 }
