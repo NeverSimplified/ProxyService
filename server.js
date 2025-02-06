@@ -282,6 +282,6 @@ export default {
     } else {
       writeErr(res, 400, 'proxy-access-key and proxy-target headers are both required');
     }
-  };
+  }
   
 }
